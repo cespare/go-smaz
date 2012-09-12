@@ -5,14 +5,14 @@ short strings (particularly containing English words).
 
 ## Installation
 
-  $ go get github.com/cespare/go-smaz
+    $ go get github.com/cespare/go-smaz
 
 ## Usage
 
 ``` go
 import "smaz"
 s := "Now is the time for all good men to come to the aid of the party."
-compressed := smaz.Compress([]byte(s))      // type is []byte
+compressed := smaz.Compress([]byte(s))           // type is []byte
 decompressed, err := smaz.Decompress(compressed) // type is []byte; string(decompressed) == s
 ```
 

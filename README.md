@@ -1,6 +1,6 @@
 # go-smaz
 
-go-smaz is a pure Go implementation of [antirez's](github.com/antirez)
+go-smaz is a pure Go implementation of [antirez's](https://github.com/antirez)
 [smaz](https://github.com/antirez/smaz), a library for compressing short strings (particularly containing
 English words).
 
@@ -17,7 +17,7 @@ compressed := smaz.Compress([]byte(s))           // type is []byte
 decompressed, err := smaz.Decompress(compressed) // type is []byte; string(decompressed) == s
 ```
 
-Also see the [API documentation](go.pkgdoc.org/github.com/cespare/go-smaz).
+Also see the [API documentation](http://go.pkgdoc.org/github.com/cespare/go-smaz).
 
 ## Notes
 
@@ -31,8 +31,8 @@ thought for performance; I'll profile it and make it a lot faster when I get a c
 
 ## Author
 
-Caleb Spare ([cespare](github.com/cespare)). smaz was created by Salvatore Sanfilippo
-([antirez](github.com/antirez)).
+Caleb Spare ([cespare](https://github.com/cespare)). smaz was created by Salvatore Sanfilippo
+([antirez](https://github.com/antirez)).
 
 ## License
 

@@ -11,7 +11,7 @@ English words).
 ## Usage
 
 ``` go
-import "smaz"
+import "github.com/cespare/go-smaz"
 s := "Now is the time for all good men to come to the aid of the party."
 compressed := smaz.Compress([]byte(s))           // type is []byte
 decompressed, err := smaz.Decompress(compressed) // type is []byte; string(decompressed) == s

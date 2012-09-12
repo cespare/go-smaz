@@ -1,7 +1,8 @@
 # go-smaz
 
-go-smaz is a pure Go implementation of [smaz](https://github.com/antirez/smaz), a library for compressing
-short strings (particularly containing English words).
+go-smaz is a pure Go implementation of [antirez's](github.com/antirez)
+[smaz](https://github.com/antirez/smaz), a library for compressing short strings (particularly containing
+English words).
 
 ## Installation
 
@@ -30,7 +31,8 @@ thought for performance; I'll profile it and make it a lot faster when I get a c
 
 ## Author
 
-Caleb Spare ([cespare](github.com/cespare))
+Caleb Spare ([cespare](github.com/cespare)). smaz was created by Salvatore Sanfilippo
+([antirez](github.com/antirez)).
 
 ## License
 

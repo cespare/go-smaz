@@ -1,5 +1,5 @@
-// smaz is an implementation of the smaz library (https://github.com/antirez/smaz) for compressing small
-// strings.
+// Package smaz is an implementation of the smaz library (https://github.com/antirez/smaz) for compressing
+// small strings.
 package smaz
 
 import (
@@ -46,11 +46,12 @@ func init() {
 	}
 }
 
-// Compress a byte array and return a new byte array with the compressed data.
-// TODO: This function is written in an extremely naive manner for the time being and is very slow. I will
+// BUG(cespare): Compress is written in an extremely naive manner for the time being and is very slow. I will
 // reimplement (and then profile/optimize it) after I get done with go-trie, which will be a natural fit for
 // this problem.
-func Compress(input []byte) (compressed []byte) {
+
+// Compress compresses a byte slice and returns the compressed data.
+func Compress(input []byte) []byte {
 	var outputBuffer bytes.Buffer
 	var verbatim bytes.Buffer
 	remaining := len(input)
@@ -105,22 +106,21 @@ func Compress(input []byte) (compressed []byte) {
 	return outputBuffer.Bytes()
 }
 
-var DecompressionError = errors.New("Invalid or corrupt compressed data.")
+var decompressionError = errors.New("Invalid or corrupted compressed data.")
 
-// Decompress a byte array and return a new array with the decompressed data. If the decompression fails for
-// some reason, err will be non-nil.
-func Decompress(compressed []byte) (output []byte, err error) {
+// Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
+// is nil if and only if decompression fails for any reason (e.g., corrupted data).
+func Decompress(compressed []byte) ([]byte, error) {
 	var decompressed bytes.Buffer
 	var remaining = len(compressed)
 	var position = 0
-	var dummy []byte
 
 	for remaining > 0 {
 		switch compressed[position] {
 		case 254:
 			// Verbatim byte
 			if remaining < 2 {
-				return dummy, err
+				return nil, decompressionError
 			}
 			decompressed.WriteByte(compressed[position+1])
 			remaining -= 2
@@ -128,11 +128,11 @@ func Decompress(compressed []byte) (output []byte, err error) {
 		case 255:
 			// Verbatim string
 			if remaining < 2 {
-				return dummy, err
+				return nil, decompressionError
 			}
 			length := int(compressed[position+1])
 			if remaining < length+2 {
-				return dummy, err
+				return nil, decompressionError
 			}
 			decompressed.Write(compressed[position+2 : position+length+2])
 			remaining -= length + 2

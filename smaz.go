@@ -106,7 +106,7 @@ var DecompressionError = errors.New("Invalid or corrupted compressed data.")
 // Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
 // is nil if and only if decompression fails for any reason (e.g., corrupted data).
 func Decompress(compressed []byte) ([]byte, error) {
-	var decompressed bytes.Buffer
+	decompressed := bytes.NewBuffer(make([]byte, 0, len(compressed))) // Estimate initial size
 
 	for len(compressed) > 0 {
 		switch compressed[0] {

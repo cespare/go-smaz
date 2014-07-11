@@ -54,7 +54,7 @@ func TestCorrectness(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(input, decompressed) {
-			t.Fatal("want %q after decompression; got %q\n", input, decompressed)
+			t.Fatalf("want %q after decompression; got %q\n", input, decompressed)
 		}
 
 		if len(input) > 1 && len(input) < 50 {

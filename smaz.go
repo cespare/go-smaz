@@ -7,7 +7,7 @@ import (
 	"errors"
 )
 
-var codes = []string{" ",
+var codeStrings = []string{" ",
 	"the", "e", "t", "a", "of", "o", "and", "i", "n", "s", "e ", "r", " th",
 	" t", "in", "he", "th", "h", "he ", "to", "\r\n", "l", "s ", "d", " a", "an",
 	"er", "c", " o", "d ", "on", " of", "re", "of ", "t ", ", ", "is", "u", "at",
@@ -31,17 +31,16 @@ var codes = []string{" ",
 	"e, ", " it", "whi", " ma", "ge", "x", "e c", "men", ".com",
 }
 
-var codeArrays = make([][]byte, len(codes))
+var codes = make([][]byte, len(codeStrings))
 var prefixToCode = make(map[string]byte)
-var maxCodeLength = 0 // TODO: Unnecessary when we switch to a trie implementation
+var maxCodeLen = 0 // TODO: Unnecessary when we switch to a trie implementation
 
-// Library initialization.
 func init() {
-	for i, code := range codes {
-		codeArrays[i] = []byte(code)
+	for i, code := range codeStrings {
+		codes[i] = []byte(code)
 		prefixToCode[code] = byte(i)
-		if len(code) > maxCodeLength {
-			maxCodeLength = len(code)
+		if len(code) > maxCodeLen {
+			maxCodeLen = len(code)
 		}
 	}
 }
@@ -52,10 +51,8 @@ func init() {
 
 // Compress compresses a byte slice and returns the compressed data.
 func Compress(input []byte) []byte {
-	var outputBuffer bytes.Buffer
+	var outBuf bytes.Buffer
 	var verbatim bytes.Buffer
-	remaining := len(input)
-	position := 0
 
 	flushVerbatim := func() {
 		// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
@@ -64,84 +61,74 @@ func Compress(input []byte) []byte {
 			chunk := verbatim.Next(255)
 			if len(chunk) == 1 {
 				// 254 is code for a single verbatim byte
-				outputBuffer.WriteByte(byte(254))
+				outBuf.WriteByte(byte(254))
 			} else {
 				// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
-				outputBuffer.WriteByte(byte(255))
-				outputBuffer.WriteByte(byte(len(chunk)))
+				outBuf.WriteByte(byte(255))
+				outBuf.WriteByte(byte(len(chunk)))
 			}
-			outputBuffer.Write(chunk)
+			outBuf.Write(chunk)
 		}
 		verbatim.Reset()
 	}
 
-	for remaining > 0 {
+	for len(input) > 0 {
 		// Find the longest matching substring, brute-force
-		longestPossibleMatch := maxCodeLength
-		if remaining < longestPossibleMatch {
-			longestPossibleMatch = remaining
+		maxPossibleMatch := maxCodeLen
+		if len(input) < maxPossibleMatch {
+			maxPossibleMatch = len(input)
 		}
 		matchFound := false
-		for i := longestPossibleMatch; i > 0; i-- {
-			prefix := input[position : position+i]
-			/*fmt.Printf("Prefix: %v\n", string(prefix))*/
+		for matchLen := maxPossibleMatch; matchLen > 0; matchLen-- {
+			prefix := input[:matchLen]
 			if code, ok := prefixToCode[string(prefix)]; ok {
 				// Match found
-				remaining -= i
-				position += i
+				input = input[matchLen:]
 				flushVerbatim()
-				outputBuffer.WriteByte(code)
+				outBuf.WriteByte(code)
 				matchFound = true
 				break
 			}
 		}
 		if !matchFound {
-			verbatim.WriteByte(input[position])
-			remaining -= 1
-			position += 1
+			verbatim.WriteByte(input[0])
+			input = input[1:]
 		}
 	}
 	flushVerbatim()
 
-	return outputBuffer.Bytes()
+	return outBuf.Bytes()
 }
 
-var decompressionError = errors.New("Invalid or corrupted compressed data.")
+// DecompressionError is returned when decompressing invalid smaz-encoded data.
+var DecompressionError = errors.New("Invalid or corrupted compressed data.")
 
 // Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
 // is nil if and only if decompression fails for any reason (e.g., corrupted data).
 func Decompress(compressed []byte) ([]byte, error) {
 	var decompressed bytes.Buffer
-	var remaining = len(compressed)
-	var position = 0
 
-	for remaining > 0 {
-		switch compressed[position] {
-		case 254:
-			// Verbatim byte
-			if remaining < 2 {
-				return nil, decompressionError
+	for len(compressed) > 0 {
+		switch compressed[0] {
+		case 254: // Verbatim byte
+			if len(compressed) < 2 {
+				return nil, DecompressionError
 			}
-			decompressed.WriteByte(compressed[position+1])
-			remaining -= 2
-			position += 2
-		case 255:
-			// Verbatim string
-			if remaining < 2 {
-				return nil, decompressionError
+			decompressed.WriteByte(compressed[1])
+			compressed = compressed[2:]
+		case 255: // Verbatim string
+			if len(compressed) < 2 {
+				return nil, DecompressionError
 			}
-			length := int(compressed[position+1])
-			if remaining < length+2 {
-				return nil, decompressionError
+			n := int(compressed[1])
+			if len(compressed) < n+2 {
+				return nil, DecompressionError
 			}
-			decompressed.Write(compressed[position+2 : position+length+2])
-			remaining -= length + 2
-			position += length + 2
-		default:
-			// Look up encoded value
-			decompressed.Write([]byte(codes[int(compressed[position])]))
-			remaining--
-			position++
+			decompressed.Write(compressed[2 : n+2])
+			compressed = compressed[n+2:]
+		default: // Look up encoded value
+			decompressed.Write(codes[int(compressed[0])])
+			compressed = compressed[1:]
 		}
 	}
 

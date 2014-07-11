@@ -3,17 +3,9 @@ package smaz
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	. "launchpad.net/gocheck"
 	"os"
 	"testing"
 )
-
-func Test(t *testing.T) { TestingT(t) }
-
-type SmazSuite struct{}
-
-var _ = Suite(&SmazSuite{})
 
 var antirezTestStrings = []string{"",
 	"This is a small string",
@@ -35,11 +27,11 @@ var antirezTestStrings = []string{"",
 	"/media/hdb1/music/Alben/The Bla",
 }
 
-func (s *SmazSuite) TestCorrectness(c *C) {
+func TestCorrectness(t *testing.T) {
 	// Set up our slice of test strings.
 	inputs := make([][]byte, 0)
-	for _, testInput := range antirezTestStrings {
-		inputs = append(inputs, []byte(testInput))
+	for _, s := range antirezTestStrings {
+		inputs = append(inputs, []byte(s))
 	}
 	// An array with every possible byte value in it.
 	allBytes := make([]byte, 256)
@@ -55,77 +47,61 @@ func (s *SmazSuite) TestCorrectness(c *C) {
 	}
 	inputs = append(inputs, allZeroes)
 
-	for _, testInput := range inputs {
-		compressed := Compress(testInput)
+	for _, input := range inputs {
+		compressed := Compress(input)
 		decompressed, err := Decompress(compressed)
-		c.Assert(err, IsNil)
-		if len(testInput) == 0 {
-			// Can't use DeepEquals for a nil slice and an empty slice -- they're different
-			c.Assert(decompressed, HasLen, 0)
-		} else {
-			c.Assert(testInput, DeepEquals, decompressed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(input, decompressed) {
+			t.Fatal("want %q after decompression; got %q\n", input, decompressed)
 		}
 
-		if len(testInput) > 1 && len(testInput) < 50 {
-			compressionLevel := 100 - ((100.0 * len(compressed)) / len(testInput))
+		if len(input) > 1 && len(input) < 50 {
+			compressionLevel := 100 - ((100.0 * len(compressed)) / len(input))
 			if compressionLevel < 0 {
-				fmt.Printf("'%s' enlarged by %d%%\n", testInput, -compressionLevel)
+				t.Logf("%q enlarged by %d%%\n", input, -compressionLevel)
 			} else {
-				fmt.Printf("'%s' compressed by %d%%\n", testInput, compressionLevel)
+				t.Logf("%q compressed by %d%%\n", input, compressionLevel)
 			}
 		}
 	}
 }
 
-func loadTestData() [][]byte {
-	file, err := os.Open("./testdata/pg5200.txt")
+func loadTestData(t testing.TB) [][]byte {
+	f, err := os.Open("./testdata/pg5200.txt")
 	if err != nil {
-		fmt.Printf("Error opening test data file: %v\n", err)
-		os.Exit(1)
+		t.Fatal(err)
 	}
 
-	totalSize := 0
-	testStrings := make([][]byte, 0)
-	currentLine := new(bytes.Buffer)
-	reader := bufio.NewReader(file)
-	var part []byte
-	var prefix bool
-
-	for {
-		if part, prefix, err = reader.ReadLine(); err != nil {
-			break
-		}
-		currentLine.Write(part)
-		totalSize += len(part)
-		if !prefix {
-			testStrings = append(testStrings, currentLine.Bytes())
-			currentLine = new(bytes.Buffer)
-		}
+	var lines [][]byte
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, []byte(scanner.Text())) // Note that .Bytes() would require us to manually copy
 	}
-	return testStrings
+	return lines
 }
 
-func (s *SmazSuite) BenchmarkCompression(c *C) {
-	c.StopTimer()
-	testStrings := loadTestData()
-	/*fmt.Printf("The test corpus contains %d lines and %d bytes of text.", len(testStrings), totalSize)*/
-	c.StartTimer()
-	for i := 0; i < c.N; i++ {
-		for _, testString := range testStrings {
-			Compress(testString)
+func BenchmarkCompression(b *testing.B) {
+	b.StopTimer()
+	inputs := loadTestData(b)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		for _, input := range inputs {
+			Compress(input)
 		}
 	}
 }
 
-func (s *SmazSuite) BenchmarkDecompression(c *C) {
-	c.StopTimer()
-	testStrings := loadTestData()
-	compressedStrings := make([][]byte, len(testStrings))
-	for i, testString := range testStrings {
-		compressedStrings[i] = Compress(testString)
+func BenchmarkDecompression(b *testing.B) {
+	b.StopTimer()
+	inputs := loadTestData(b)
+	compressedStrings := make([][]byte, len(inputs))
+	for i, input := range inputs {
+		compressedStrings[i] = Compress(input)
 	}
-	c.StartTimer()
-	for i := 0; i < c.N; i++ {
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
 		for _, compressed := range compressedStrings {
 			Decompress(compressed)
 		}

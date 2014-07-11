@@ -80,3 +80,11 @@ func (n *Node) Terminal() bool { return n.terminal }
 // terminal (else it would not exist). Logically, if n is a leaf node then the []byte represented by the path
 // from the root to n is not a proper prefix of any element of the trie.
 func (n *Node) Leaf() bool { return !n.hasChildren }
+
+// Val gives the value associated with this node. It panics if n is not terminal.
+func (n *Node) Val() int {
+	if !n.terminal {
+		panic("Val called on non-terminal node")
+	}
+	return n.val
+}

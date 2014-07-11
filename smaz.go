@@ -5,6 +5,8 @@ package smaz
 import (
 	"bytes"
 	"errors"
+
+	"github.com/cespare/go-smaz/trie"
 )
 
 var codeStrings = []string{" ",
@@ -32,70 +34,65 @@ var codeStrings = []string{" ",
 }
 
 var codes = make([][]byte, len(codeStrings))
-var prefixToCode = make(map[string]byte)
-var maxCodeLen = 0 // TODO: Unnecessary when we switch to a trie implementation
+var codeTrie = trie.New()
 
 func init() {
 	for i, code := range codeStrings {
 		codes[i] = []byte(code)
-		prefixToCode[code] = byte(i)
-		if len(code) > maxCodeLen {
-			maxCodeLen = len(code)
-		}
+		codeTrie.Put([]byte(code), i)
 	}
 }
 
-// BUG(cespare): Compress is written in an extremely naive manner for the time being and is very slow. I will
-// reimplement (and then profile/optimize it) after I get done with go-trie, which will be a natural fit for
-// this problem.
+func flushVerb(outBuf, verbBuf *bytes.Buffer) {
+	// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
+	// section is represented by a single byte.
+	for verbBuf.Len() > 0 {
+		chunk := verbBuf.Next(255)
+		if len(chunk) == 1 {
+			// 254 is code for a single verbatim byte
+			outBuf.WriteByte(byte(254))
+		} else {
+			// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
+			outBuf.WriteByte(byte(255))
+			outBuf.WriteByte(byte(len(chunk)))
+		}
+		outBuf.Write(chunk)
+	}
+	verbBuf.Reset()
+}
 
 // Compress compresses a byte slice and returns the compressed data.
 func Compress(input []byte) []byte {
 	var outBuf bytes.Buffer
-	var verbatim bytes.Buffer
-
-	flushVerbatim := func() {
-		// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
-		// section is represented by a single byte.
-		for verbatim.Len() > 0 {
-			chunk := verbatim.Next(255)
-			if len(chunk) == 1 {
-				// 254 is code for a single verbatim byte
-				outBuf.WriteByte(byte(254))
-			} else {
-				// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
-				outBuf.WriteByte(byte(255))
-				outBuf.WriteByte(byte(len(chunk)))
-			}
-			outBuf.Write(chunk)
-		}
-		verbatim.Reset()
-	}
+	var verbBuf bytes.Buffer
+	root := codeTrie.Root()
 
 	for len(input) > 0 {
-		// Find the longest matching substring, brute-force
-		maxPossibleMatch := maxCodeLen
-		if len(input) < maxPossibleMatch {
-			maxPossibleMatch = len(input)
-		}
-		matchFound := false
-		for matchLen := maxPossibleMatch; matchLen > 0; matchLen-- {
-			prefix := input[:matchLen]
-			if code, ok := prefixToCode[string(prefix)]; ok {
-				// Match found
-				input = input[matchLen:]
-				flushVerbatim()
-				outBuf.WriteByte(code)
-				matchFound = true
+		prefixLen := 0
+		code := 0
+		node := root
+		for i, c := range input {
+			next, ok := node.Walk(c)
+			if !ok {
 				break
 			}
+			node = next
+			if node.Terminal() {
+				prefixLen = i + 1
+				code = node.Val()
+			}
 		}
-		if !matchFound {
-			verbatim.WriteByte(input[0])
+
+		if prefixLen > 0 {
+			input = input[prefixLen:]
+			flushVerb(&outBuf, &verbBuf)
+			outBuf.WriteByte(byte(code))
+		} else {
+			verbBuf.WriteByte(input[0])
 			input = input[1:]
 		}
 	}
-	flushVerbatim()
+	flushVerb(&outBuf, &verbBuf)
 
 	return outBuf.Bytes()
 }

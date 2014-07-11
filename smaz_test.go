@@ -68,23 +68,27 @@ func TestCorrectness(t *testing.T) {
 	}
 }
 
-func loadTestData(t testing.TB) [][]byte {
+func loadTestData(t testing.TB) ([][]byte, int64) {
 	f, err := os.Open("./testdata/pg5200.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var lines [][]byte
+	var n int64
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		lines = append(lines, []byte(scanner.Text())) // Note that .Bytes() would require us to manually copy
+		input := []byte(scanner.Text()) // Note that .Bytes() would require us to manually copy
+		lines = append(lines, input)
+		n += int64(len(input))
 	}
-	return lines
+	return lines, n
 }
 
 func BenchmarkCompression(b *testing.B) {
 	b.StopTimer()
-	inputs := loadTestData(b)
+	inputs, n := loadTestData(b)
+	b.SetBytes(n)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		for _, input := range inputs {
@@ -95,11 +99,15 @@ func BenchmarkCompression(b *testing.B) {
 
 func BenchmarkDecompression(b *testing.B) {
 	b.StopTimer()
-	inputs := loadTestData(b)
+	inputs, _ := loadTestData(b)
 	compressedStrings := make([][]byte, len(inputs))
+	var n int64
 	for i, input := range inputs {
-		compressedStrings[i] = Compress(input)
+		compressed := Compress(input)
+		compressedStrings[i] = compressed
+		n += int64(len(compressed))
 	}
+	b.SetBytes(n)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		for _, compressed := range compressedStrings {

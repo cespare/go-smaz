@@ -37,6 +37,10 @@ output of the C library should be decompressible by `smaz.Decompress`.
 Caleb Spare ([cespare](https://github.com/cespare)). smaz was created by Salvatore Sanfilippo
 ([antirez](https://github.com/antirez)).
 
+## Contributors
+
+* [Antoine Grondin](https://github.com/aybabtme)
+
 ## License
 
 MIT Licensed.

@@ -3,7 +3,6 @@
 package smaz
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/kjk/smaz/trie"
@@ -43,28 +42,40 @@ func init() {
 	}
 }
 
-func flushVerb(outBuf, verbBuf *bytes.Buffer) {
-	// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
-	// section is represented by a single byte.
-	for verbBuf.Len() > 0 {
-		chunk := verbBuf.Next(255)
+func next(d []byte, n int) ([]byte, []byte) {
+	if len(d) < n {
+		return d, nil
+	}
+	return d[:n], d[n:]
+}
+
+func flushVerb(outBufPtr, verbBufPtr *[]byte) {
+	// We can write a max of 255 continuous verbatim characters, because the
+	// length of the continous verbatim section is represented by a single byte.
+	outBuf := *outBufPtr
+	verbBuf := *verbBufPtr
+	var chunk []byte
+	for len(verbBuf) > 0 {
+		chunk, verbBuf = next(verbBuf, 255)
 		if len(chunk) == 1 {
 			// 254 is code for a single verbatim byte
-			outBuf.WriteByte(byte(254))
+			outBuf = append(outBuf, byte(254))
 		} else {
-			// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
-			outBuf.WriteByte(byte(255))
-			outBuf.WriteByte(byte(len(chunk)))
+			// 255 is code for a verbatim string. It is followed by a byte
+			// containing the length of the string.
+			outBuf = append(outBuf, byte(255))
+			outBuf = append(outBuf, byte(len(chunk)))
 		}
-		outBuf.Write(chunk)
+		outBuf = append(outBuf, chunk...)
 	}
-	verbBuf.Reset()
+	*outBufPtr = outBuf
+	*verbBufPtr = verbBuf[:0]
 }
 
 // Compress compresses a byte slice and returns the compressed data.
 func Compress(input []byte) []byte {
-	var outBuf bytes.Buffer
-	var verbBuf bytes.Buffer
+	var dst []byte
+	var verbBuf []byte
 	root := codeTrie.Root()
 
 	for len(input) > 0 {
@@ -85,16 +96,16 @@ func Compress(input []byte) []byte {
 
 		if prefixLen > 0 {
 			input = input[prefixLen:]
-			flushVerb(&outBuf, &verbBuf)
-			outBuf.WriteByte(byte(code))
+			flushVerb(&dst, &verbBuf)
+			dst = append(dst, byte(code))
 		} else {
-			verbBuf.WriteByte(input[0])
+			verbBuf = append(verbBuf, input[0])
 			input = input[1:]
 		}
 	}
-	flushVerb(&outBuf, &verbBuf)
+	flushVerb(&dst, &verbBuf)
 
-	return outBuf.Bytes()
+	return dst
 }
 
 // ErrDecompression is returned when decompressing invalid smaz-encoded data.

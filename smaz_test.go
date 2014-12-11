@@ -48,8 +48,8 @@ func TestCorrectness(t *testing.T) {
 	inputs = append(inputs, allZeroes)
 
 	for _, input := range inputs {
-		compressed := Compress(input)
-		decompressed, err := Decompress(compressed)
+		compressed := Encode(input)
+		decompressed, err := Decode(compressed)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +92,7 @@ func BenchmarkCompression(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		for _, input := range inputs {
-			Compress(input)
+			Encode(input)
 		}
 	}
 }
@@ -103,7 +103,7 @@ func BenchmarkDecompression(b *testing.B) {
 	compressedStrings := make([][]byte, len(inputs))
 	var n int64
 	for i, input := range inputs {
-		compressed := Compress(input)
+		compressed := Encode(input)
 		compressedStrings[i] = compressed
 		n += int64(len(compressed))
 	}
@@ -111,7 +111,7 @@ func BenchmarkDecompression(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		for _, compressed := range compressedStrings {
-			_, err := Decompress(compressed)
+			_, err := Decode(compressed)
 			if err != nil {
 				b.Fatalf("Decompress failed with %s", err)
 			}

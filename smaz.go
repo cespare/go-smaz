@@ -49,31 +49,28 @@ func next(d []byte, n int) ([]byte, []byte) {
 	return d[:n], d[n:]
 }
 
-func flushVerb(outBufPtr, verbBufPtr *[]byte) {
+func flushVerb(dst, verbBuf []byte) ([]byte, []byte) {
 	// We can write a max of 255 continuous verbatim characters, because the
 	// length of the continous verbatim section is represented by a single byte.
-	outBuf := *outBufPtr
-	verbBuf := *verbBufPtr
 	var chunk []byte
 	for len(verbBuf) > 0 {
 		chunk, verbBuf = next(verbBuf, 255)
 		if len(chunk) == 1 {
 			// 254 is code for a single verbatim byte
-			outBuf = append(outBuf, byte(254))
+			dst = append(dst, byte(254))
 		} else {
 			// 255 is code for a verbatim string. It is followed by a byte
 			// containing the length of the string.
-			outBuf = append(outBuf, byte(255))
-			outBuf = append(outBuf, byte(len(chunk)))
+			dst = append(dst, byte(255))
+			dst = append(dst, byte(len(chunk)))
 		}
-		outBuf = append(outBuf, chunk...)
+		dst = append(dst, chunk...)
 	}
-	*outBufPtr = outBuf
-	*verbBufPtr = verbBuf[:0]
+	return dst, verbBuf[:0]
 }
 
 // Compress compresses a byte slice and returns the compressed data.
-func Compress(src []byte) []byte {
+func Encode(src []byte) []byte {
 	var dst []byte
 	var verbBuf []byte
 	root := codeTrie.Root()
@@ -96,14 +93,14 @@ func Compress(src []byte) []byte {
 
 		if prefixLen > 0 {
 			src = src[prefixLen:]
-			flushVerb(&dst, &verbBuf)
+			dst, verbBuf = flushVerb(dst, verbBuf)
 			dst = append(dst, byte(code))
 		} else {
 			verbBuf = append(verbBuf, src[0])
 			src = src[1:]
 		}
 	}
-	flushVerb(&dst, &verbBuf)
+	dst, _ = flushVerb(dst, verbBuf)
 
 	return dst
 }
@@ -113,7 +110,7 @@ var ErrDecompression = errors.New("Invalid or corrupted compressed data.")
 
 // Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
 // is nil if and only if decompression fails for any reason (e.g., corrupted data).
-func Decompress(src []byte) ([]byte, error) {
+func Decode(src []byte) ([]byte, error) {
 	dst := make([]byte, 0, len(src))
 	for len(src) > 0 {
 		switch src[0] {

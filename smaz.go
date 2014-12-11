@@ -69,9 +69,11 @@ func flushVerb(dst, verbBuf []byte) ([]byte, []byte) {
 	return dst, verbBuf[:0]
 }
 
-// Compress compresses a byte slice and returns the compressed data.
-func Encode(src []byte) []byte {
-	var dst []byte
+// Encode returns the encoded form of src. The returned slice may be a sub-slice
+// of dst if dst was large enough to hold the entire encoded block. Otherwise,
+// a newly allocated slice will be returned. It is valid to pass a nil dst.
+func Encode(dst, src []byte) []byte {
+	dst = dst[:0]
 	var verbBuf []byte
 	root := codeTrie.Root()
 
@@ -101,37 +103,40 @@ func Encode(src []byte) []byte {
 		}
 	}
 	dst, _ = flushVerb(dst, verbBuf)
-
 	return dst
 }
 
-// ErrDecompression is returned when decompressing invalid smaz-encoded data.
-var ErrDecompression = errors.New("Invalid or corrupted compressed data.")
+// ErrCorrupt reports that the input is invalid.
+var ErrCorrupt = errors.New("smaz: corrupt input")
 
-// Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
-// is nil if and only if decompression fails for any reason (e.g., corrupted data).
-func Decode(src []byte) ([]byte, error) {
-	dst := make([]byte, 0, len(src))
+// Decode returns the decoded form of src. The returned slice may be a sub-slice
+// of dst if dst was large enough to hold the entire decoded block. Otherwise,
+// a newly allocated slice will be returned. It is valid to pass a nil dst.
+func Decode(dst, src []byte) ([]byte, error) {
+	if cap(dst) < len(src) {
+		dst = make([]byte, 0, len(src))
+	}
 	for len(src) > 0 {
-		switch src[0] {
+		n := int(src[0])
+		switch n {
 		case 254: // Verbatim byte
 			if len(src) < 2 {
-				return nil, ErrDecompression
+				return nil, ErrCorrupt
 			}
 			dst = append(dst, src[1])
 			src = src[2:]
 		case 255: // Verbatim string
 			if len(src) < 2 {
-				return nil, ErrDecompression
+				return nil, ErrCorrupt
 			}
-			n := int(src[1])
+			n = int(src[1])
 			if len(src) < n+2 {
-				return nil, ErrDecompression
+				return nil, ErrCorrupt
 			}
 			dst = append(dst, src[2:n+2]...)
 			src = src[n+2:]
 		default: // Look up encoded value
-			d := codes[int(src[0])]
+			d := codes[n]
 			dst = append(dst, d...)
 			src = src[1:]
 		}

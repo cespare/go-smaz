@@ -111,7 +111,10 @@ func BenchmarkDecompression(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		for _, compressed := range compressedStrings {
-			Decompress(compressed)
+			_, err := Decompress(compressed)
+			if err != nil {
+				b.Fatalf("Decompress failed with %s", err)
+			}
 		}
 	}
 }

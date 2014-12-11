@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/cespare/go-smaz/trie"
+	"github.com/kjk/smaz/trie"
 )
 
 var codeStrings = []string{" ",

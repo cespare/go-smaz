@@ -3,10 +3,9 @@
 package smaz
 
 import (
-	"bytes"
 	"errors"
 
-	"github.com/cespare/go-smaz/trie"
+	"github.com/kjk/smaz/trie"
 )
 
 var codeStrings = []string{" ",
@@ -43,35 +42,46 @@ func init() {
 	}
 }
 
-func flushVerb(outBuf, verbBuf *bytes.Buffer) {
-	// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
-	// section is represented by a single byte.
-	for verbBuf.Len() > 0 {
-		chunk := verbBuf.Next(255)
-		if len(chunk) == 1 {
-			// 254 is code for a single verbatim byte
-			outBuf.WriteByte(byte(254))
-		} else {
-			// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
-			outBuf.WriteByte(byte(255))
-			outBuf.WriteByte(byte(len(chunk)))
-		}
-		outBuf.Write(chunk)
+func next(d []byte, n int) ([]byte, []byte) {
+	if len(d) < n {
+		return d, nil
 	}
-	verbBuf.Reset()
+	return d[:n], d[n:]
 }
 
-// Compress compresses a byte slice and returns the compressed data.
-func Compress(input []byte) []byte {
-	var outBuf bytes.Buffer
-	var verbBuf bytes.Buffer
+func flushVerb(dst, verbBuf []byte) ([]byte, []byte) {
+	// We can write a max of 255 continuous verbatim characters, because the
+	// length of the continous verbatim section is represented by a single byte.
+	var chunk []byte
+	for len(verbBuf) > 0 {
+		chunk, verbBuf = next(verbBuf, 255)
+		if len(chunk) == 1 {
+			// 254 is code for a single verbatim byte
+			dst = append(dst, byte(254))
+		} else {
+			// 255 is code for a verbatim string. It is followed by a byte
+			// containing the length of the string.
+			dst = append(dst, byte(255))
+			dst = append(dst, byte(len(chunk)))
+		}
+		dst = append(dst, chunk...)
+	}
+	return dst, verbBuf[:0]
+}
+
+// Encode returns the encoded form of src. The returned slice may be a sub-slice
+// of dst if dst was large enough to hold the entire encoded block. Otherwise,
+// a newly allocated slice will be returned. It is valid to pass a nil dst.
+func Encode(dst, src []byte) []byte {
+	dst = dst[:0]
+	var verbBuf []byte
 	root := codeTrie.Root()
 
-	for len(input) > 0 {
+	for len(src) > 0 {
 		prefixLen := 0
 		code := 0
 		node := root
-		for i, c := range input {
+		for i, c := range src {
 			next, ok := node.Walk(c)
 			if !ok {
 				break
@@ -84,50 +94,53 @@ func Compress(input []byte) []byte {
 		}
 
 		if prefixLen > 0 {
-			input = input[prefixLen:]
-			flushVerb(&outBuf, &verbBuf)
-			outBuf.WriteByte(byte(code))
+			src = src[prefixLen:]
+			dst, verbBuf = flushVerb(dst, verbBuf)
+			dst = append(dst, byte(code))
 		} else {
-			verbBuf.WriteByte(input[0])
-			input = input[1:]
+			verbBuf = append(verbBuf, src[0])
+			src = src[1:]
 		}
 	}
-	flushVerb(&outBuf, &verbBuf)
-
-	return outBuf.Bytes()
+	dst, _ = flushVerb(dst, verbBuf)
+	return dst
 }
 
-// DecompressionError is returned when decompressing invalid smaz-encoded data.
-var DecompressionError = errors.New("Invalid or corrupted compressed data.")
+// ErrCorrupt reports that the input is invalid.
+var ErrCorrupt = errors.New("smaz: corrupt input")
 
-// Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
-// is nil if and only if decompression fails for any reason (e.g., corrupted data).
-func Decompress(compressed []byte) ([]byte, error) {
-	decompressed := bytes.NewBuffer(make([]byte, 0, len(compressed))) // Estimate initial size
-
-	for len(compressed) > 0 {
-		switch compressed[0] {
+// Decode returns the decoded form of src. The returned slice may be a sub-slice
+// of dst if dst was large enough to hold the entire decoded block. Otherwise,
+// a newly allocated slice will be returned. It is valid to pass a nil dst.
+func Decode(dst, src []byte) ([]byte, error) {
+	if cap(dst) < len(src) {
+		dst = make([]byte, 0, len(src))
+	}
+	for len(src) > 0 {
+		n := int(src[0])
+		switch n {
 		case 254: // Verbatim byte
-			if len(compressed) < 2 {
-				return nil, DecompressionError
+			if len(src) < 2 {
+				return nil, ErrCorrupt
 			}
-			decompressed.WriteByte(compressed[1])
-			compressed = compressed[2:]
+			dst = append(dst, src[1])
+			src = src[2:]
 		case 255: // Verbatim string
-			if len(compressed) < 2 {
-				return nil, DecompressionError
+			if len(src) < 2 {
+				return nil, ErrCorrupt
 			}
-			n := int(compressed[1])
-			if len(compressed) < n+2 {
-				return nil, DecompressionError
+			n = int(src[1])
+			if len(src) < n+2 {
+				return nil, ErrCorrupt
 			}
-			decompressed.Write(compressed[2 : n+2])
-			compressed = compressed[n+2:]
+			dst = append(dst, src[2:n+2]...)
+			src = src[n+2:]
 		default: // Look up encoded value
-			decompressed.Write(codes[int(compressed[0])])
-			compressed = compressed[1:]
+			d := codes[n]
+			dst = append(dst, d...)
+			src = src[1:]
 		}
 	}
 
-	return decompressed.Bytes(), nil
+	return dst, nil
 }

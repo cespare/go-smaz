@@ -1,5 +1,7 @@
 # go-smaz
 
+[![GoDoc](https://godoc.org/github.com/cespare/go-smaz?status.svg)](https://godoc.org/github.com/cespare/go-smaz)
+
 go-smaz is a pure Go implementation of [antirez's](https://github.com/antirez)
 [smaz](https://github.com/antirez/smaz), a library for compressing short strings (particularly containing
 English words).

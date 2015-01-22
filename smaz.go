@@ -97,8 +97,8 @@ func Compress(input []byte) []byte {
 	return outBuf.Bytes()
 }
 
-// DecompressionError is returned when decompressing invalid smaz-encoded data.
-var DecompressionError = errors.New("Invalid or corrupted compressed data.")
+// ErrDecompression is returned when decompressing invalid smaz-encoded data.
+var ErrDecompression = errors.New("invalid or corrupted compressed data")
 
 // Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
 // is nil if and only if decompression fails for any reason (e.g., corrupted data).
@@ -109,17 +109,17 @@ func Decompress(compressed []byte) ([]byte, error) {
 		switch compressed[0] {
 		case 254: // Verbatim byte
 			if len(compressed) < 2 {
-				return nil, DecompressionError
+				return nil, ErrDecompression
 			}
 			decompressed.WriteByte(compressed[1])
 			compressed = compressed[2:]
 		case 255: // Verbatim string
 			if len(compressed) < 2 {
-				return nil, DecompressionError
+				return nil, ErrDecompression
 			}
 			n := int(compressed[1])
 			if len(compressed) < n+2 {
-				return nil, DecompressionError
+				return nil, ErrDecompression
 			}
 			decompressed.Write(compressed[2 : n+2])
 			compressed = compressed[n+2:]

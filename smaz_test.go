@@ -7,6 +7,51 @@ import (
 	"testing"
 )
 
+func (n *trieNode) get(k []byte) (byte, bool) {
+	for _, c := range k {
+		next := n.branches[int(c)]
+		if next == nil {
+			return 0, false
+		}
+		n = next
+	}
+	if n.terminal {
+		return n.val, true
+	}
+	return 0, false
+}
+
+func TestTrie(t *testing.T) {
+	var root trieNode
+	ks := []string{"foo", "fool", "fools", "blah"}
+	for i, s := range ks {
+		if ok := root.put([]byte(s), byte(i)); !ok {
+			t.Fatal("expected false when putting a fresh key")
+		}
+		if ok := root.put([]byte("foo"), 100); ok {
+			t.Fatal("expected true when putting an existing key")
+		}
+	}
+	for i, s := range ks {
+		c, ok := root.get([]byte(s))
+		if !ok {
+			t.Fatalf("expected to find %s in trie, but did not", s)
+		}
+		want := byte(i)
+		if want == 0 {
+			want = 100
+		}
+		if want != c {
+			t.Fatalf("want %d; got %d", want, c)
+		}
+	}
+	for _, s := range []string{"f", "fo", "b", "fooll"} {
+		if _, ok := root.get([]byte(s)); ok {
+			t.Fatalf("did not expect to find %s in trie", s)
+		}
+	}
+}
+
 var antirezTestStrings = []string{"",
 	"This is a small string",
 	"foobar",

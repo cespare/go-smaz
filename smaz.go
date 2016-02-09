@@ -3,7 +3,6 @@
 package smaz
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/cespare/go-smaz/trie"
@@ -39,39 +38,43 @@ var codeTrie = trie.New()
 func init() {
 	for i, code := range codeStrings {
 		codes[i] = []byte(code)
-		codeTrie.Put([]byte(code), i)
+		codeTrie.Put([]byte(code), byte(i))
 	}
 }
 
-func flushVerb(outBuf, verbBuf *bytes.Buffer) {
+func flushVerb(out, verb []byte) []byte {
 	// We can write a max of 255 continuous verbatim characters,
-	// because the length of the continous verbatim section is represented
+	// because the length of the continuous verbatim section is represented
 	// by a single byte.
-	for verbBuf.Len() > 0 {
-		chunk := verbBuf.Next(255)
+	var chunk []byte
+	for len(verb) > 0 {
+		if len(verb) < 255 {
+			chunk, verb = verb, nil
+		} else {
+			chunk, verb = verb[:255], verb[255:]
+		}
 		if len(chunk) == 1 {
 			// 254 is code for a single verbatim byte.
-			outBuf.WriteByte(byte(254))
+			out = append(out, 254)
 		} else {
 			// 255 is code for a verbatim string.
 			// It is followed by a byte containing the length of the string.
-			outBuf.WriteByte(byte(255))
-			outBuf.WriteByte(byte(len(chunk)))
+			out = append(out, 255, byte(len(chunk)))
 		}
-		outBuf.Write(chunk)
+		out = append(out, chunk...)
 	}
-	verbBuf.Reset()
+	return out
 }
 
 // Compress compresses a byte slice and returns the compressed data.
 func Compress(input []byte) []byte {
-	var outBuf bytes.Buffer
-	var verbBuf bytes.Buffer
+	out := make([]byte, 0, len(input)/2) // estimate output size
+	var verb []byte
 	root := codeTrie.Root()
 
 	for len(input) > 0 {
 		prefixLen := 0
-		code := 0
+		var code byte
 		node := root
 		for i, c := range input {
 			next, ok := node.Walk(c)
@@ -87,16 +90,15 @@ func Compress(input []byte) []byte {
 
 		if prefixLen > 0 {
 			input = input[prefixLen:]
-			flushVerb(&outBuf, &verbBuf)
-			outBuf.WriteByte(byte(code))
+			out = flushVerb(out, verb)
+			verb = verb[:0]
+			out = append(out, code)
 		} else {
-			verbBuf.WriteByte(input[0])
+			verb = append(verb, input[0])
 			input = input[1:]
 		}
 	}
-	flushVerb(&outBuf, &verbBuf)
-
-	return outBuf.Bytes()
+	return flushVerb(out, verb)
 }
 
 // ErrDecompression is returned when decompressing invalid smaz-encoded data.
@@ -106,32 +108,32 @@ var ErrDecompression = errors.New("invalid or corrupted compressed data")
 // with the decompressed data.
 // err is nil if and only if decompression fails for any reason
 // (e.g., corrupted data).
-func Decompress(compressed []byte) ([]byte, error) {
-	decompressed := bytes.NewBuffer(make([]byte, 0, len(compressed))) // estimate initial size
+func Decompress(b []byte) ([]byte, error) {
+	dec := make([]byte, 0, len(b)) // estimate initial size
 
-	for len(compressed) > 0 {
-		switch compressed[0] {
+	for len(b) > 0 {
+		switch b[0] {
 		case 254: // verbatim byte
-			if len(compressed) < 2 {
+			if len(b) < 2 {
 				return nil, ErrDecompression
 			}
-			decompressed.WriteByte(compressed[1])
-			compressed = compressed[2:]
+			dec = append(dec, b[1])
+			b = b[2:]
 		case 255: // verbatim string
-			if len(compressed) < 2 {
+			if len(b) < 2 {
 				return nil, ErrDecompression
 			}
-			n := int(compressed[1])
-			if len(compressed) < n+2 {
+			n := int(b[1])
+			if len(b) < n+2 {
 				return nil, ErrDecompression
 			}
-			decompressed.Write(compressed[2 : n+2])
-			compressed = compressed[n+2:]
+			dec = append(dec, b[2:n+2]...)
+			b = b[n+2:]
 		default: // look up encoded value
-			decompressed.Write(codes[int(compressed[0])])
-			compressed = compressed[1:]
+			dec = append(dec, codes[int(b[0])]...)
+			b = b[1:]
 		}
 	}
 
-	return decompressed.Bytes(), nil
+	return dec, nil
 }

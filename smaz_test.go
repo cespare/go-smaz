@@ -86,10 +86,9 @@ func loadTestData(t testing.TB) ([][]byte, int64) {
 }
 
 func BenchmarkCompression(b *testing.B) {
-	b.StopTimer()
 	inputs, n := loadTestData(b)
 	b.SetBytes(n)
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, input := range inputs {
 			Compress(input)
@@ -98,7 +97,6 @@ func BenchmarkCompression(b *testing.B) {
 }
 
 func BenchmarkDecompression(b *testing.B) {
-	b.StopTimer()
 	inputs, _ := loadTestData(b)
 	compressedStrings := make([][]byte, len(inputs))
 	var n int64
@@ -108,7 +106,7 @@ func BenchmarkDecompression(b *testing.B) {
 		n += int64(len(compressed))
 	}
 	b.SetBytes(n)
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, compressed := range compressedStrings {
 			Decompress(compressed)

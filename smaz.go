@@ -1,5 +1,5 @@
-// Package smaz is an implementation of the smaz library (https://github.com/antirez/smaz) for compressing
-// small strings.
+// Package smaz is an implementation of the smaz library
+// (https://github.com/antirez/smaz) for compressing small strings.
 package smaz
 
 import (
@@ -44,15 +44,17 @@ func init() {
 }
 
 func flushVerb(outBuf, verbBuf *bytes.Buffer) {
-	// We can write a max of 255 continuous verbatim characters, because the length of the continous verbatim
-	// section is represented by a single byte.
+	// We can write a max of 255 continuous verbatim characters,
+	// because the length of the continous verbatim section is represented
+	// by a single byte.
 	for verbBuf.Len() > 0 {
 		chunk := verbBuf.Next(255)
 		if len(chunk) == 1 {
-			// 254 is code for a single verbatim byte
+			// 254 is code for a single verbatim byte.
 			outBuf.WriteByte(byte(254))
 		} else {
-			// 255 is code for a verbatim string. It is followed by a byte containing the length of the string.
+			// 255 is code for a verbatim string.
+			// It is followed by a byte containing the length of the string.
 			outBuf.WriteByte(byte(255))
 			outBuf.WriteByte(byte(len(chunk)))
 		}
@@ -100,20 +102,22 @@ func Compress(input []byte) []byte {
 // ErrDecompression is returned when decompressing invalid smaz-encoded data.
 var ErrDecompression = errors.New("invalid or corrupted compressed data")
 
-// Decompress decompresses a smaz-compressed byte slice and return a new slice with the decompressed data. err
-// is nil if and only if decompression fails for any reason (e.g., corrupted data).
+// Decompress decompresses a smaz-compressed byte slice and return a new slice
+// with the decompressed data.
+// err is nil if and only if decompression fails for any reason
+// (e.g., corrupted data).
 func Decompress(compressed []byte) ([]byte, error) {
-	decompressed := bytes.NewBuffer(make([]byte, 0, len(compressed))) // Estimate initial size
+	decompressed := bytes.NewBuffer(make([]byte, 0, len(compressed))) // estimate initial size
 
 	for len(compressed) > 0 {
 		switch compressed[0] {
-		case 254: // Verbatim byte
+		case 254: // verbatim byte
 			if len(compressed) < 2 {
 				return nil, ErrDecompression
 			}
 			decompressed.WriteByte(compressed[1])
 			compressed = compressed[2:]
-		case 255: // Verbatim string
+		case 255: // verbatim string
 			if len(compressed) < 2 {
 				return nil, ErrDecompression
 			}
@@ -123,7 +127,7 @@ func Decompress(compressed []byte) ([]byte, error) {
 			}
 			decompressed.Write(compressed[2 : n+2])
 			compressed = compressed[n+2:]
-		default: // Look up encoded value
+		default: // look up encoded value
 			decompressed.Write(codes[int(compressed[0])])
 			compressed = compressed[1:]
 		}

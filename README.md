@@ -1,14 +1,14 @@
 # go-smaz
 
-[![GoDoc](https://godoc.org/github.com/cespare/go-smaz?status.svg)](https://godoc.org/github.com/cespare/go-smaz)
+[![Go Reference](https://pkg.go.dev/badge/github.com/cespare/go-smaz.svg)](https://pkg.go.dev/github.com/cespare/go-smaz)
 
 go-smaz is a pure Go implementation of [antirez's](https://github.com/antirez)
-[smaz](https://github.com/antirez/smaz), a library for compressing short strings (particularly containing
-English words).
+[smaz](https://github.com/antirez/smaz), a library for compressing short strings
+(particularly containing English words).
 
 ## Installation
 
-    $ go get github.com/cespare/go-smaz
+    go get github.com/cespare/go-smaz
 
 ## Usage
 
@@ -26,18 +26,19 @@ func main() {
 }
 ```
 
-Also see the [API documentation](http://godoc.org/github.com/cespare/go-smaz).
+Also see the [API documentation](https://pkg.go.dev/github.com/cespare/go-smaz).
 
 ## Notes
 
-go-smaz is not a direct port of the C version. It is not guaranteed that the output of `smaz.Compress` will be
-precisely the same as the C library. However, the output should be decompressible by the C library, and the
-output of the C library should be decompressible by `smaz.Decompress`.
+go-smaz is not a direct port of the C version. It is not guaranteed that the
+output of `smaz.Compress` will be precisely the same as the C library. However,
+the output should be decompressible by the C library, and the output of the C
+library should be decompressible by `smaz.Decompress`.
 
 ## Author
 
-Caleb Spare ([cespare](https://github.com/cespare)). smaz was created by Salvatore Sanfilippo
-([antirez](https://github.com/antirez)).
+Caleb Spare ([cespare](https://github.com/cespare)). smaz was created by
+Salvatore Sanfilippo ([antirez](https://github.com/antirez)).
 
 ## Contributors
 

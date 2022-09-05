@@ -70,6 +70,12 @@ var antirezTestStrings = []string{"",
 	"http://programming.reddit.com",
 	"http://github.com/antirez/smaz/tree/master",
 	"/media/hdb1/music/Alben/The Bla",
+	`1 2 3 4 5 6 7 8 9`,
+	`11 22 33 44 55 66 77 88 99`,
+	`whichwhichwhichwhichwhichwhichwhichwhichwhichwhich11 22 33 44 55 66 77 88 99`,
+	`whichwhichwhichwhichwhichwhichwhichwhichwhichwhich1 2 3 4 5 6 7 8 9`,
+	`1en2en3en4en`,
+	`1en2en3en4en4`,
 }
 
 func TestCorrectness(t *testing.T) {
@@ -102,12 +108,12 @@ func TestCorrectness(t *testing.T) {
 			t.Fatalf("want %q after decompression; got %q\n", input, decompressed)
 		}
 
-		if len(input) > 1 && len(input) < 50 {
+		if len(input) > 1 && len(input) < 100 {
 			compressionLevel := 100 - ((100.0 * len(compressed)) / len(input))
 			if compressionLevel < 0 {
-				t.Logf("%q enlarged by %d%%\n", input, -compressionLevel)
+				t.Logf("%q enlarged by %d%% (%d -> %d bytes)\n", input, -compressionLevel, len(input), len(compressed))
 			} else {
-				t.Logf("%q compressed by %d%%\n", input, compressionLevel)
+				t.Logf("%q compressed by %d%% (%d -> %d bytes)\n", input, compressionLevel, len(input), len(compressed))
 			}
 		}
 	}

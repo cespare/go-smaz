@@ -93,6 +93,7 @@ func flushVerb(out, verb []byte) []byte {
 
 // Compress compresses a byte slice and returns the compressed data.
 func Compress(input []byte) []byte {
+	orgIn := input
 	out := make([]byte, 0, len(input)/2) // estimate output size
 	var verb []byte
 
@@ -103,6 +104,22 @@ func Compress(input []byte) []byte {
 		for i, c := range input {
 			next := n.branches[int(c)]
 			if next == nil {
+				if len(verb) > 0 {
+					// We are emitting literals, check if next is in dict.
+					// If not, keep emitting literals.
+					want := 2
+					if len(verb) == 1 {
+						// If we only have one byte queued, allow a single byte to interrupt.
+						want = 1
+					}
+					if prefixLen <= want {
+						next = codeTrie.branches[int(c)]
+						if next == nil {
+							// Emit as literal instead.
+							prefixLen = 0
+						}
+					}
+				}
 				break
 			}
 			n = next
@@ -122,7 +139,13 @@ func Compress(input []byte) []byte {
 			input = input[1:]
 		}
 	}
-	return flushVerb(out, verb)
+	out = flushVerb(out, verb)
+	// Test final output size.
+	// Prefer no encoding.
+	if len(out) >= len(orgIn)+1+((len(orgIn)+253)/255) {
+		return flushVerb(out[:0], orgIn)
+	}
+	return out
 }
 
 // ErrDecompression is returned when decompressing invalid smaz-encoded data.
